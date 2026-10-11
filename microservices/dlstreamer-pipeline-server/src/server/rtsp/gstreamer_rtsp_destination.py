@@ -89,6 +89,14 @@ class GStreamerRtspDestination(AppDestination):
         self._pts += delta
         self._last_timestamp = timestamp
         retval = self._app_src.emit('push-buffer', buffer)
+        if retval == Gst.FlowReturn.FLUSHING:
+            # Transient condition (expected during backpressure/pipeline
+            # state changes). Skip this frame only - do NOT tear down the
+            # shared destination, since a single transient FLUSHING return
+            # should not permanently stop delivery for all clients.
+            self._logger.debug(
+                "Push buffer flushing for stream {}, skipping frame".format(self._rtsp_path))
+            return
         if retval != Gst.FlowReturn.OK:
             self._logger.debug(
                 "Push buffer failed for stream {} with {}".format(self._rtsp_path, retval))
